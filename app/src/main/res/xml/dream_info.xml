@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No settings activity; the frame is configured server-side via ImmichFrame. -->
+<dream xmlns:android="http://schemas.android.com/apk/res/android" />
