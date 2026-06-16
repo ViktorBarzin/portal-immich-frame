@@ -12,9 +12,9 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
 
         <!--
-          One activity, two roles:
-            * LAUNCHER  - shows in the app list so you can open it manually / for testing.
-            * HOME      - lets the Portal use it as the home screen (launcher-fallback mode).
+          The frame app you open manually. Exits via double-tap / long-press /
+          Back (see FrameActivity). The idle experience is the screensaver
+          (FrameDreamService) below — not a home-screen takeover.
         -->
         <activity
             android:name=".FrameActivity"
@@ -25,11 +25,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

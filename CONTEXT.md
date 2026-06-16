@@ -28,11 +28,15 @@ Highlights endpoint full-screen on the Portal and to own the device's idle
 screen. Contains no photo logic of its own.
 
 ### Screensaver mode
-The **primary** way the Frame owns the idle screen: an Android screensaver
-("Dream") that the system shows when the Portal is idle. Non-invasive and
-reversible.
+How the Frame owns the **idle** screen: an Android screensaver ("Dream") the
+Portal shows when it's idle. Confirmed working on the Portal; exits on touch.
+This is the always-on photo-frame experience.
 
-### Launcher mode
-The **fallback** way the Frame owns the idle screen: the Portal app registered as
-the device's HOME screen, so it is what's shown whenever nothing else is running.
-Used only if Screensaver mode isn't triggered by the device.
+### App mode
+Opening the Frame **on demand** as a normal full-screen app from the Portal's app
+list. Exits via double-tap, long-press, or Back. Distinct from the idle
+Screensaver — this is the "show me the photos now" path.
+
+> An earlier design kept a launcher/HOME-takeover fallback in case the Portal
+> didn't trigger screensavers. The Portal does trigger them, so that fallback was
+> dropped: the Frame never replaces the Portal's home screen.

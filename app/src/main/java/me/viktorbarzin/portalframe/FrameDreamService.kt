@@ -1,16 +1,16 @@
 package me.viktorbarzin.portalframe
 
 import android.service.dreams.DreamService
-import android.webkit.WebView
 
 /**
- * Screensaver ("Dream") that renders the frame when the Portal is idle.
- * This is the primary idle-display mechanism; the HOME role on [FrameActivity]
- * is the fallback if the Portal does not trigger stock Android screensavers.
+ * Screensaver ("Dream") that renders the frame when the Portal is idle. Exits on
+ * any touch automatically (standard screensaver behaviour). Uses the same
+ * self-healing [FrameView] as the app, so a renderer crash during a long idle
+ * stretch recovers on its own.
  */
 class FrameDreamService : DreamService() {
 
-    private var webView: WebView? = null
+    private var frame: FrameView? = null
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -18,25 +18,24 @@ class FrameDreamService : DreamService() {
         isInteractive = false
         isScreenBright = true
 
-        val wv = FrameWebViewFactory.create(this)
-        webView = wv
-        setContentView(wv)
-        wv.loadUrl(BuildConfig.FRAME_URL)
+        val f = FrameView(this)
+        frame = f
+        setContentView(f)
     }
 
     override fun onDreamingStarted() {
         super.onDreamingStarted()
-        webView?.onResume()
+        frame?.onResumeView()
     }
 
     override fun onDreamingStopped() {
-        webView?.onPause()
+        frame?.onPauseView()
         super.onDreamingStopped()
     }
 
     override fun onDetachedFromWindow() {
-        webView?.destroy()
-        webView = null
+        frame?.destroyView()
+        frame = null
         super.onDetachedFromWindow()
     }
 }

@@ -1,41 +1,84 @@
 package me.viktorbarzin.portalframe
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.webkit.WebView
+import android.widget.Toast
 
 /**
- * Full-screen photo-frame activity. Doubles as the Portal HOME screen
- * (launcher-fallback mode) via the HOME intent-filter in the manifest.
+ * Full-screen photo-frame activity for the "open it as an app" mode.
+ *
+ * Immersive mode hides the system bars for a clean display, so the app provides
+ * its own exit affordances:
+ *   - double-tap anywhere
+ *   - long-press anywhere
+ *   - the Back button (where the device exposes one)
+ *
+ * Touch is handled in [dispatchTouchEvent] so the exit gestures keep working even
+ * after [FrameView] rebuilds its WebView (e.g. after a renderer crash). The idle
+ * experience is a separate component ([FrameDreamService]).
  */
 class FrameActivity : Activity() {
 
-    private lateinit var webView: WebView
+    private lateinit var frame: FrameView
+    private lateinit var gestureDetector: GestureDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        webView = FrameWebViewFactory.create(this)
-        setContentView(webView)
-        webView.loadUrl(BuildConfig.FRAME_URL)
+
+        frame = FrameView(this)
+        setContentView(frame)
+
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                finish()
+                return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                finish()
+            }
+        })
+
+        Toast.makeText(this, "Double-tap or long-press to exit", Toast.LENGTH_LONG).show()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        gestureDetector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // singleTask warm-relaunch reuses this instance — reload so re-opening
+        // always shows a fresh frame rather than a stale/blank page.
+        frame.reload()
     }
 
     override fun onResume() {
         super.onResume()
         enterImmersiveMode()
-        webView.onResume()
+        frame.onResumeView()
     }
 
     override fun onPause() {
-        webView.onPause()
+        frame.onPauseView()
         super.onPause()
     }
 
     override fun onDestroy() {
-        webView.destroy()
+        frame.destroyView()
         super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION") // targetSdk 29
+    override fun onBackPressed() {
+        finish()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

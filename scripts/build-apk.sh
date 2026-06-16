@@ -14,16 +14,22 @@ PROJ_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="eclipse-temurin:17-jdk"
 SDK_VOL="portalframe-android-sdk"
 GRADLE_VOL="portalframe-gradle-cache"
+HOME_VOL="portalframe-android-home"   # persists ~/.android/debug.keystore so the
+                                      # debug signature is STABLE across rebuilds
+                                      # (otherwise `adb install -r` fails with
+                                      # INSTALL_FAILED_UPDATE_INCOMPATIBLE).
 GRADLE_VERSION="8.7"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
 
 docker volume create "$SDK_VOL"    >/dev/null
 docker volume create "$GRADLE_VOL" >/dev/null
+docker volume create "$HOME_VOL"   >/dev/null
 
 docker run --rm \
   -v "$PROJ_DIR":/project \
   -v "$SDK_VOL":/sdk \
   -v "$GRADLE_VOL":/root/.gradle \
+  -v "$HOME_VOL":/root/.android \
   -w /project \
   -e ANDROID_SDK_ROOT=/sdk \
   -e ANDROID_HOME=/sdk \

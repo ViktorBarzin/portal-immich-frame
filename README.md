@@ -36,18 +36,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Configure on the Portal
 
-Set as **screensaver** first (non-invasive, reversible):
+Set as the **screensaver** (non-invasive, reversible — replaces the Portal's
+default dream, restore by setting the component back):
 
 ```bash
 adb shell settings put secure screensaver_enabled 1
+adb shell settings put secure screensaver_activate_on_sleep 1
+adb shell settings put secure screensaver_activate_on_dock 1
 adb shell settings put secure screensaver_components me.viktorbarzin.portalframe/.FrameDreamService
 ```
 
-If the Portal doesn't trigger screensavers on idle, fall back to **home**:
+Restore the Portal's own screensaver:
 
 ```bash
-adb shell cmd package set-home-activity me.viktorbarzin.portalframe/.FrameActivity
+adb shell settings put secure screensaver_components com.facebook.alohaapps.launcher/com.facebook.aloha.app.home.touch.HomeDreamService
 ```
+
+**App mode**: launch `me.viktorbarzin.portalframe/.FrameActivity`; exit with
+double-tap, long-press, or Back. It does **not** take over the home screen.
 
 ## Configuration
 
