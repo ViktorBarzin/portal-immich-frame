@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowManager
 import android.widget.Toast
 
 /**
@@ -29,8 +28,9 @@ class FrameActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
+        // No FLAG_KEEP_SCREEN_ON: the frame should let the Portal sleep normally
+        // (its presence detection keeps the screen lit while someone's there, and
+        // it powers off when the room's empty / overnight).
         frame = FrameView(this)
         setContentView(frame)
 
