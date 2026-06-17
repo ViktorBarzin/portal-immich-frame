@@ -5,13 +5,14 @@ A glossary for this project. Definitions only — no implementation detail.
 ## Glossary
 
 ### Frame
-The always-on idle display experience on the Portal: photos cycling whenever the
-device isn't actively in use. The goal of the whole project. A *digital photo
-frame*, not an app you open.
+The Immich photo-frame experience on the Portal: photos cycling on the screen.
+The goal of the project. On the Portal it's realized by leaving the Portal app
+open (see App mode) — a true screensaver isn't available (see Screensaver).
 
 ### Portal
 A Meta Portal Plus — a wall/counter smart display running Android 10. The target
-device. Repurposed here as a photo frame after Meta's end-of-life of the product.
+device, repurposed as a photo frame after Meta's end-of-life of the product. Its
+camera **presence** detection governs when the screen is awake.
 
 ### ImmichFrame (server)
 The existing, separately-deployed web service (in the cluster's `immich`
@@ -24,19 +25,20 @@ The public, login-less URL where the ImmichFrame server serves the slideshow
 
 ### Portal app
 This repository: a thin native Android wrapper whose only job is to show the
-Highlights endpoint full-screen on the Portal and to own the device's idle
-screen. Contains no photo logic of its own.
-
-### Screensaver mode
-How the Frame owns the **idle** screen: an Android screensaver ("Dream") the
-Portal shows when it's idle. Confirmed working on the Portal; exits on touch.
-This is the always-on photo-frame experience.
+Highlights endpoint full-screen on the Portal. Contains no photo logic of its own.
 
 ### App mode
-Opening the Frame **on demand** as a normal full-screen app from the Portal's app
-list. Exits via double-tap, long-press, or Back. Distinct from the idle
-Screensaver — this is the "show me the photos now" path.
+The supported way to run the Frame on the Portal: open the app and leave it open.
+It does not force the screen on, so the Portal's presence detection keeps it lit
+while someone's there and sleeps it on idle. Exits via double-tap, long-press, or
+Back. Never takes over the home screen.
 
-> An earlier design kept a launcher/HOME-takeover fallback in case the Portal
-> didn't trigger screensavers. The Portal does trigger them, so that fallback was
-> dropped: the Frame never replaces the Portal's home screen.
+### Screensaver (unavailable on Portal)
+The app ships a `DreamService` so it *could* be a stock Android screensaver, but
+the Portal's SuperFrame presence manager forcibly stops any third-party dream the
+instant it starts. So on Portal the Frame is App mode, not a screensaver. (The
+Dream still works on stock-Android devices.)
+
+> Earlier designs tried screensaver-first with a HOME-launcher fallback. Both
+> were dropped once Portal's screensaver block was found: the Frame runs as an
+> ordinary open app and never replaces the Portal's home screen.
