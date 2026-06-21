@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.widget.Toast
 
 /**
@@ -28,9 +29,12 @@ class FrameActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // No FLAG_KEEP_SCREEN_ON: the frame should let the Portal sleep normally
-        // (its presence detection keeps the screen lit while someone's there, and
-        // it powers off when the room's empty / overnight).
+        // Keep the screen on while the frame is open. The Portal's own power
+        // policy + camera presence do NOT reliably hold it — it went dark on a
+        // ~3-min cycle even with screen_off_timeout maxed out — so hold the
+        // wakelock at the window. (Re-added in v0.1.5; removed in v0.1.4 was a
+        // mistake for this device.)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         frame = FrameView(this)
         setContentView(frame)
 

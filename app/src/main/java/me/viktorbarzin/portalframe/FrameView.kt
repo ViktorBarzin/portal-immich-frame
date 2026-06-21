@@ -40,6 +40,7 @@ class FrameView(context: Context) : FrameLayout(context) {
         wv.isVerticalScrollBarEnabled = false
         wv.isHorizontalScrollBarEnabled = false
         wv.overScrollMode = OVER_SCROLL_NEVER
+        wv.keepScreenOn = true
         with(wv.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true

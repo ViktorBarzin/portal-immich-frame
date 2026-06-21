@@ -4,7 +4,12 @@ Date: 2026-06-16
 
 ## Status
 
-Accepted (revises the screensaver-first/launcher-fallback approach)
+Accepted (revises the screensaver-first/launcher-fallback approach).
+
+**Note:** the power-management sub-decision below — *not* holding the screen on,
+letting the Portal sleep it on idle — was reversed by **ADR-0004** (v0.1.5). The
+Portal's power policy darkened the frame regardless; the screen is now held on in
+the app. The always-open-app decision itself stands.
 
 ## Context
 
