@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Immich dark surface (#101828). The colourful Immich lens + its white
+         tile sit on this in the adaptive icon, so the launcher icon is always
+         high-contrast regardless of the home-screen wallpaper. -->
+    <color name="ic_launcher_background">#101828</color>
+</resources>
