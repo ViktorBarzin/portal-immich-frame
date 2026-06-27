@@ -19,14 +19,18 @@ android {
         buildConfig = true
     }
 
-    // The frame URL is the only configuration knob. Override per build type if needed.
+    // The frame URL is the only configuration knob. Defaults to Viktor's London
+    // frame; override at build time with -PframeUrl=<url> (e.g. Emo's Sofia frame:
+    // -PframeUrl=https://highlights-immich-emo.viktorbarzin.me).
+    val frameUrl = (project.findProperty("frameUrl") as String?)
+        ?: "https://highlights-immich.viktorbarzin.me"
     buildTypes {
         getByName("debug") {
-            buildConfigField("String", "FRAME_URL", "\"https://highlights-immich.viktorbarzin.me\"")
+            buildConfigField("String", "FRAME_URL", "\"$frameUrl\"")
         }
         getByName("release") {
             isMinifyEnabled = false
-            buildConfigField("String", "FRAME_URL", "\"https://highlights-immich.viktorbarzin.me\"")
+            buildConfigField("String", "FRAME_URL", "\"$frameUrl\"")
         }
     }
 

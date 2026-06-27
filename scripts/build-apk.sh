@@ -5,7 +5,9 @@
 # distribution, and the Gradle dependency cache are kept in named docker volumes
 # so rebuilds are fast. Disk-conscious: ~2.7 GB across image + volumes.
 #
-# Usage: scripts/build-apk.sh        (debug APK)
+# Usage: scripts/build-apk.sh        (debug APK, default London frame)
+#        FRAME_URL=https://highlights-immich-emo.viktorbarzin.me scripts/build-apk.sh
+#                                    (debug APK pointed at a different frame, e.g. Emo)
 # Output: app/build/outputs/apk/debug/app-debug.apk
 #
 set -euo pipefail
@@ -33,6 +35,7 @@ docker run --rm \
   -w /project \
   -e ANDROID_SDK_ROOT=/sdk \
   -e ANDROID_HOME=/sdk \
+  -e FRAME_URL="${FRAME_URL:-}" \
   "$IMAGE" bash -euo pipefail -c '
     export DEBIAN_FRONTEND=noninteractive
     command -v unzip >/dev/null || { apt-get update -qq && apt-get install -y -qq unzip curl >/dev/null; }
@@ -59,8 +62,8 @@ docker run --rm \
 
     # Generate the committed wrapper once, then build through it.
     [ -x ./gradlew ] || gradle wrapper --gradle-version '"$GRADLE_VERSION"' --distribution-type bin >/dev/null
-    echo ">> Building debug APK..."
-    ./gradlew --no-daemon assembleDebug
+    echo ">> Building debug APK (FRAME_URL=${FRAME_URL:-<default London>})..."
+    ./gradlew --no-daemon assembleDebug ${FRAME_URL:+-PframeUrl="$FRAME_URL"}
   '
 
 echo
