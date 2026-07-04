@@ -20,8 +20,13 @@ namespace) that renders an Immich library as a slideshow web page. It is the
 **source of the visuals**; this project does not re-implement it.
 
 ### Highlights endpoint
-The public, login-less URL where the ImmichFrame server serves the slideshow
+The login-less URL where the ImmichFrame server serves the slideshow
 (`highlights-immich.viktorbarzin.me`). The single thing the Portal app displays.
+**LAN-only since 2026-07-04**: the hostname resolves publicly to the cluster's
+*internal* ingress IP, and a source-IP allowlist rejects everything outside
+the home LANs / WireGuard sites (infra repo,
+`docs/plans/2026-07-04-immich-frame-lan-only-design.md`). The Portal needed no
+change — its baked-in URL keeps resolving and routing from any home network.
 
 ### Portal app
 This repository: a thin native Android wrapper whose only job is to show the

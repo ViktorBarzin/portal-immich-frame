@@ -6,6 +6,11 @@ A deliberately tiny native Android app: a full-screen `WebView` that displays th
 **already-running** ImmichFrame web page (`https://highlights-immich.viktorbarzin.me`,
 served from the cluster's `immich` namespace). It holds no photo logic of its own.
 
+> **Access (since 2026-07-04):** the endpoint is LAN-only — the hostname
+> resolves publicly to the internal ingress IP and a source-IP allowlist
+> gates it to the home LANs / WireGuard sites. No app change was needed;
+> the same baked-in URL keeps working from home networks.
+
 **How it runs:** you leave the app **open** — it *is* the frame. It deliberately
 does **not** force the screen on, so the Portal's camera presence keeps it lit
 while someone's in the room and powers it off on idle. Exit anytime with
