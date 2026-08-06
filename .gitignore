@@ -15,3 +15,6 @@ captures/
 *.iml
 .idea/
 .DS_Store
+
+# Git worktrees live at the repo root by convention
+.worktrees/
