@@ -31,6 +31,16 @@ change — its baked-in URL keeps resolving and routing from any home network.
 ### Portal app
 This repository: a thin native Android wrapper whose only job is to show the
 Highlights endpoint full-screen on the Portal. Contains no photo logic of its own.
+One APK serves every Portal — which frame a given device shows is **device
+configuration** (see Frame URL), not a property of the build.
+
+### Frame URL
+Which Highlights endpoint *this particular device* shows. Device state: a persisted
+override set over adb, falling back to the URL baked in at build time. It is the
+only thing about the app that varies per Portal, which is why adding a portal needs
+no rebuild (ADR-0005). Validation allow-lists `http`/`https` — the value is loaded
+into a JavaScript-enabled kiosk WebView, so the set of acceptable schemes is a
+security boundary, not a formatting preference.
 
 ### App mode
 The supported way to run the Frame on the Portal: open the app and leave it open.

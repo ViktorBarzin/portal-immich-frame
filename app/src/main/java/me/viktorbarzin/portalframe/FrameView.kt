@@ -28,6 +28,10 @@ class FrameView(context: Context) : FrameLayout(context) {
     private var webView: WebView? = null
     private val main = Handler(Looper.getMainLooper())
 
+    // Resolved per load, not cached, so re-pointing the device takes effect on the
+    // next reload without restarting the app.
+    private val urls = FrameUrlStore(context)
+
     init {
         setBackgroundColor(Color.BLACK)
         build()
@@ -57,7 +61,7 @@ class FrameView(context: Context) : FrameLayout(context) {
             ) {
                 // Self-heal transient network/WAN failures of the main page.
                 if (request?.isForMainFrame == true) {
-                    main.postDelayed({ view.loadUrl(BuildConfig.FRAME_URL) }, RETRY_MS)
+                    main.postDelayed({ view.loadUrl(urls.current()) }, RETRY_MS)
                 }
             }
 
@@ -74,7 +78,7 @@ class FrameView(context: Context) : FrameLayout(context) {
         }
         webView = wv
         addView(wv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        wv.loadUrl(BuildConfig.FRAME_URL)
+        wv.loadUrl(urls.current())
     }
 
     private fun destroyWebView() {
@@ -88,7 +92,7 @@ class FrameView(context: Context) : FrameLayout(context) {
     /** Reload the frame (e.g. when the app is re-opened). Rebuilds if needed. */
     fun reload() {
         val wv = webView
-        if (wv == null) build() else wv.loadUrl(BuildConfig.FRAME_URL)
+        if (wv == null) build() else wv.loadUrl(urls.current())
     }
 
     fun onResumeView() = webView?.onResume()

@@ -21,6 +21,12 @@ import android.widget.Toast
  * Touch is handled in [dispatchTouchEvent] so the exit gestures keep working even
  * after [FrameView] rebuilds its WebView (e.g. after a renderer crash). The idle
  * experience is a separate component ([FrameDreamService]).
+ *
+ * This is also where a device gets re-pointed at a different frame, via a
+ * `frameUrl` string extra on the launch intent (see [FrameUrlStore], ADR-0005):
+ *
+ *     adb shell am start -n me.viktorbarzin.portalframe/.FrameActivity \
+ *       --es frameUrl https://highlights-immich-milka.viktorbarzin.me
  */
 class FrameActivity : Activity() {
 
@@ -29,6 +35,9 @@ class FrameActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Applied BEFORE FrameView is constructed — it loads immediately on init,
+        // so a URL supplied on this launch must already be stored.
+        val configured = applyFrameUrlExtra(intent)
         // Keep the screen on while the frame is open. The Portal's own power
         // policy + camera presence do NOT reliably hold it — it went dark on a
         // ~3-min cycle even with screen_off_timeout maxed out — so hold the
@@ -49,7 +58,11 @@ class FrameActivity : Activity() {
             }
         })
 
-        Toast.makeText(this, "Double-tap or long-press to exit", Toast.LENGTH_LONG).show()
+        // When a config change just happened, that's the more useful thing to say —
+        // the person holding the adb cable needs to see which frame took effect.
+        if (!configured) {
+            Toast.makeText(this, "Double-tap or long-press to exit", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -60,8 +73,29 @@ class FrameActivity : Activity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         // singleTask warm-relaunch reuses this instance — reload so re-opening
-        // always shows a fresh frame rather than a stale/blank page.
+        // always shows a fresh frame rather than a stale/blank page. A re-point of
+        // an already-running frame arrives here, so honour the extra before reloading.
+        applyFrameUrlExtra(intent)
         frame.reload()
+    }
+
+    /**
+     * Store a `frameUrl` extra from [intent], if present, and say what happened on
+     * screen. Returns true when something was reported, so the caller can skip the
+     * routine exit hint.
+     */
+    private fun applyFrameUrlExtra(intent: Intent?): Boolean {
+        val raw = intent?.getStringExtra(EXTRA_FRAME_URL)
+        val message = when (val outcome = FrameUrlStore(this).apply(raw)) {
+            is FrameUrlStore.Outcome.Unchanged -> return false
+            is FrameUrlStore.Outcome.Set -> "Frame: ${outcome.url}"
+            is FrameUrlStore.Outcome.Reset -> "Frame reset to default: ${outcome.url}"
+            // Say so rather than failing silently — an ignored typo is otherwise
+            // indistinguishable from the frame itself being broken.
+            is FrameUrlStore.Outcome.Rejected -> "Ignored invalid frame URL: ${outcome.raw}"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        return true
     }
 
     override fun onResume() {
@@ -88,6 +122,11 @@ class FrameActivity : Activity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) enterImmersiveMode()
+    }
+
+    private companion object {
+        /** String extra carrying the frame URL, or [FrameUrl.RESET] to clear an override. */
+        const val EXTRA_FRAME_URL = "frameUrl"
     }
 
     @Suppress("DEPRECATION") // Target SDK 29: legacy immersive flags are the supported path.

@@ -11,17 +11,18 @@ android {
         applicationId = "me.viktorbarzin.portalframe"
         minSdk = 28      // Portal runs Android 9/10; 28 maximises install compatibility
         targetSdk = 29   // Meta's recommended Portal target (Android 10)
-        versionCode = 7
-        versionName = "0.1.6"
+        versionCode = 8
+        versionName = "0.1.7"
     }
 
     buildFeatures {
         buildConfig = true
     }
 
-    // The frame URL is the only configuration knob. Defaults to Viktor's London
-    // frame; override at build time with -PframeUrl=<url> (e.g. Emo's Sofia frame:
-    // -PframeUrl=https://highlights-immich-emo.viktorbarzin.me).
+    // The frame URL is the only configuration knob, and it is settable at RUNTIME
+    // over adb (see FrameUrlStore / README) — this is only the built-in DEFAULT
+    // used until a device is re-pointed. Override the default at build time with
+    // -PframeUrl=<url>; prefer the runtime knob for new devices.
     val frameUrl = (project.findProperty("frameUrl") as String?)
         ?: "https://highlights-immich.viktorbarzin.me"
     buildTypes {
@@ -44,6 +45,8 @@ android {
 }
 
 dependencies {
-    // Intentionally none: pure platform WebView + DreamService keeps the build
-    // fast and the APK tiny, and guarantees Android-10 compatibility.
+    // Intentionally none that SHIP: pure platform WebView + DreamService keeps the
+    // build fast and the APK tiny, and guarantees Android-10 compatibility.
+    // Test-only deps are fine — they never enter the APK.
+    testImplementation("junit:junit:4.13.2")
 }

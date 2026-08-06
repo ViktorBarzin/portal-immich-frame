@@ -5,9 +5,13 @@
 # distribution, and the Gradle dependency cache are kept in named docker volumes
 # so rebuilds are fast. Disk-conscious: ~2.7 GB across image + volumes.
 #
+# Runs the unit tests before assembling — this repo has no CI, so this script is the
+# only gate; a red test fails the build.
+#
 # Usage: scripts/build-apk.sh        (debug APK, default London frame)
 #        FRAME_URL=https://highlights-immich-emo.viktorbarzin.me scripts/build-apk.sh
-#                                    (debug APK pointed at a different frame, e.g. Emo)
+#                                    (sets the DEFAULT this APK ships with; a device
+#                                     can also be re-pointed at runtime — see README)
 # Output: app/build/outputs/apk/debug/app-debug.apk
 #
 set -euo pipefail
@@ -62,6 +66,9 @@ docker run --rm \
 
     # Generate the committed wrapper once, then build through it.
     [ -x ./gradlew ] || gradle wrapper --gradle-version '"$GRADLE_VERSION"' --distribution-type bin >/dev/null
+    echo ">> Running unit tests..."
+    ./gradlew --no-daemon testDebugUnitTest ${FRAME_URL:+-PframeUrl="$FRAME_URL"}
+
     echo ">> Building debug APK (FRAME_URL=${FRAME_URL:-<default London>})..."
     ./gradlew --no-daemon assembleDebug ${FRAME_URL:+-PframeUrl="$FRAME_URL"}
   '

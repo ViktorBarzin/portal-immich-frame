@@ -19,6 +19,13 @@ ImmichFrame page. So a wipe destroys *no* durable data:
 "Restore" therefore means **re-provision from these sources**, not recover
 device state.
 
+> **One thing genuinely is device state: which frame this Portal shows.** Since
+> ADR-0005 the frame URL is a persisted override, so a wipe (or a "clear data")
+> drops it back to the URL baked into the APK. Re-set it in Step 2 — the value is
+> whichever `highlights-immich*.viktorbarzin.me` host belongs to this device's
+> `infra/stacks/immich/frame-*.tf`. Skipping it is not a hard failure: the device
+> falls back to the build default, so the wrong household's photos appear.
+
 ## Step 1 — On the device (needs a human physically at the Portal)
 
 1. Power on, run through minimal first-time setup, join the **home Wi-Fi**
@@ -51,7 +58,9 @@ USB-host map:
 | Sofia office frame | Portal | `rpi-sofia` `192.168.1.10` | `192.168.1.149` |
 
 ```bash
-# Build (Dockerized Gradle; SDK + stable debug keystore cached in docker volumes)
+# Build (Dockerized Gradle; SDK + stable debug keystore cached in docker volumes).
+# The stock APK works on every Portal — the device is pointed at its frame below,
+# so there is no need to build a per-device APK.
 scripts/build-apk.sh
 # -> app/build/outputs/apk/debug/app-debug.apk
 
@@ -60,7 +69,10 @@ scp app/build/outputs/apk/debug/app-debug.apk viktorbarzin@192.168.8.168:/tmp/fr
 ssh viktorbarzin@192.168.8.168 '
   ADB=/Users/viktorbarzin/Library/Android/sdk/platform-tools/adb
   "$ADB" install -r /tmp/frame.apk
-  "$ADB" shell am start -n me.viktorbarzin.portalframe/.FrameActivity
+  # Point this device at ITS frame (see the note above). Omit --es for the London
+  # default; the app confirms the URL on screen.
+  "$ADB" shell am start -n me.viktorbarzin.portalframe/.FrameActivity \
+    --es frameUrl https://highlights-immich-emo.viktorbarzin.me
   # idle -> screen off (not a dream), 3-min timeout:
   "$ADB" shell settings put secure screensaver_enabled 0
   "$ADB" shell settings put system screen_off_timeout 180000
@@ -73,6 +85,8 @@ looking at the physical screen, not a screenshot.
 ## Step 3 — Verify
 
 - Frame shows the Immich highlights slideshow.
+- **It is the right household's slideshow** — the on-screen toast names the URL the
+  device took; check it matches this Portal's frame.
 - Screen powers off on idle and relights on presence.
 
 ## Restore the signing key on a fresh devvm (if the docker volume was lost)
