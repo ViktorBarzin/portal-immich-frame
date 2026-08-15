@@ -31,6 +31,28 @@ android {
     // endpoint is settled — a build that points nowhere simply never self-updates.
     val updateUrl = (project.findProperty("updateUrl") as String?) ?: ""
 
+    // Sign with an EXPLICIT keystore when one is given, rather than trusting the
+    // implicit ~/.android/debug.keystore. On a GitHub runner that default is not
+    // where it is locally, so a CI build happily signed itself with a freshly
+    // generated key — which every installed frame then refuses as an update
+    // (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Nothing said so; the release simply
+    // would not have installed anywhere. Unset = previous behaviour, which is what
+    // the local Dockerised build (with its cached keystore volume) relies on.
+    val debugKeystore = (project.findProperty("debugKeystore") as String?)
+        ?: System.getenv("DEBUG_KEYSTORE_PATH")
+    signingConfigs {
+        getByName("debug") {
+            if (!debugKeystore.isNullOrBlank()) {
+                storeFile = file(debugKeystore)
+                // The stock Android debug-keystore credentials; the secret is the
+                // keystore file itself, which is why it lives in Vault.
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         getByName("debug") {
             buildConfigField("String", "FRAME_URL", "\"$frameUrl\"")

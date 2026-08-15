@@ -46,16 +46,45 @@ jobs:
             echo "::error::DEBUG_KEYSTORE_B64 is not set — the build would be signed with a throwaway key and every frame would reject the update."
             exit 1
           fi
-          mkdir -p ~/.android
-          printf '%s' "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          mkdir -p "${RUNNER_TEMP}/signing"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "${RUNNER_TEMP}/signing/frame.keystore"
+          # Record what correctly-signed output must look like, so the check after
+          # the build compares against the key we were GIVEN rather than whatever
+          # the build happened to use.
+          keytool -exportcert -keystore "${RUNNER_TEMP}/signing/frame.keystore" \
+            -alias androiddebugkey -storepass android \
+            | sha256sum | cut -d' ' -f1 > "${RUNNER_TEMP}/signing/expected-cert.sha256"
+          echo "expected signer: $(cat "${RUNNER_TEMP}/signing/expected-cert.sha256")"
 
       - name: Test and build
         # The manifest URL is baked in: 'releases/latest/download/...' is a stable
         # redirect to the newest release, so a build published today keeps finding
         # its successors without another rebuild.
+        #
+        # -PdebugKeystore is explicit on purpose: the implicit ~/.android location
+        # is not the same here as it is locally, and relying on it produced a
+        # release signed with a throwaway key that no frame would have accepted.
         run: |
           ./gradlew --no-daemon testDebugUnitTest assembleDebug \
+            -PdebugKeystore="${RUNNER_TEMP}/signing/frame.keystore" \
             -PupdateUrl="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.json"
+
+      - name: Verify the APK is signed with the frames' key
+        # The failure this guards against is silent and total: a correctly built,
+        # correctly published release that every Portal refuses to install. Cheap
+        # to check, so check it every time rather than trusting the build.
+        run: |
+          set -euo pipefail
+          apksigner=$(ls "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -1)
+          actual=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
+            | grep -m1 -oE '[0-9a-f]{64}')
+          expected=$(cat "${RUNNER_TEMP}/signing/expected-cert.sha256")
+          echo "expected: $expected"
+          echo "actual:   $actual"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::APK is signed with the wrong key — installed frames would reject this update."
+            exit 1
+          fi
 
       - name: Assemble the release artifacts
         id: artifacts
