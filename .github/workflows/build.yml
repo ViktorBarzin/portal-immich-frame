@@ -1,0 +1,102 @@
+# Build, sign and publish a frame release.
+#
+# Off-infra by doctrine (infra ADR-0002): the homelab runs no build pipeline.
+# Public repo, so GitHub Actions minutes are free.
+#
+# Publishing a release is what makes the frames update themselves: they poll
+# `latest.json` from the newest release and install the APK it names
+# (docs/adr/0006-in-app-ota-updates.md). Both assets are produced here so they
+# can never disagree — a manifest naming a checksum the APK does not have is a
+# silently skipped update on every frame.
+#
+# Note on injection safety: nothing here interpolates event-supplied text into a
+# shell. The `run:` steps read GITHUB_* environment variables, and the only
+# `${{ }}` expressions sit in `with:`/`env:` blocks.
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  # Lets a build be exercised without publishing anything.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore the signing key
+        # The SAME key the frames already have installed — Android refuses an
+        # update signed by anything else, so this is not interchangeable with a
+        # freshly generated debug keystore. Held in Vault; mirrored here as a
+        # repo secret because Actions cannot reach the homelab.
+        env:
+          KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::DEBUG_KEYSTORE_B64 is not set — the build would be signed with a throwaway key and every frame would reject the update."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          printf '%s' "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+
+      - name: Test and build
+        # The manifest URL is baked in: 'releases/latest/download/...' is a stable
+        # redirect to the newest release, so a build published today keeps finding
+        # its successors without another rebuild.
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug \
+            -PupdateUrl="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.json"
+
+      - name: Assemble the release artifacts
+        id: artifacts
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          version_name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          version_code=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          # The tag is the source of truth for what is being published; a mismatch
+          # means the version bump was forgotten, and the frames would either skip
+          # the release or take it under the wrong name.
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "$tag" != "$version_name" ]; then
+            echo "::error::tag does not match versionName in app/build.gradle.kts"
+            exit 1
+          fi
+          out="frame-v${version_name}.apk"
+          cp "$apk" "$out"
+          sha=$(sha256sum "$out" | cut -d' ' -f1)
+          cat > latest.json <<JSON
+          {
+            "versionCode": ${version_code},
+            "versionName": "${version_name}",
+            "url": "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${version_name}/${out}",
+            "sha256": "${sha}"
+          }
+          JSON
+          cat latest.json
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frame-apk
+          path: |
+            ${{ steps.artifacts.outputs.apk }}
+            latest.json
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.artifacts.outputs.apk }}
+            latest.json
