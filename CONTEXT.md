@@ -10,7 +10,8 @@ The goal of the project. On the Portal it's realized by leaving the Portal app
 open (see App mode) — a true screensaver isn't available (see Screensaver).
 
 ### Portal
-A Meta Portal Plus — a wall/counter smart display running Android 10. The target
+A Meta Portal — a wall/counter smart display. The London unit is a Portal Plus on
+Android 9; the Sofia unit is a Portal Mini on Android 10. The target
 device, repurposed as a photo frame after Meta's end-of-life of the product. Its
 camera **presence** detection governs when the screen is awake.
 

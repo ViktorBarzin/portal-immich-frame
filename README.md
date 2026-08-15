@@ -1,6 +1,12 @@
 # portal-immich-frame
 
-Turns a **Meta Portal Plus** (Android 10) into an Immich photo frame.
+Turns a **Meta Portal** into an Immich photo frame.
+
+The fleet is mixed, and it matters for anything version-gated: the London
+Portal+ (`aloha`) reports **Android 9 / API 28**, the Sofia Portal Mini
+(`omni`) reports **Android 10 / API 29** (both read from
+`ro.build.version.release`, 2026-08-16). `minSdk 28` covers both. Earlier docs
+here said "Android 10" throughout — that was only ever true of the Mini.
 
 A deliberately tiny native Android app: a full-screen `WebView` that displays the
 **already-running** ImmichFrame web page (`https://highlights-immich.viktorbarzin.me`,

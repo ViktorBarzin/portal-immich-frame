@@ -41,3 +41,15 @@ endpoint.
 - Rejected option 1 (native client) as needless re-implementation; rejected
   option 2 (prebuilt client) because its screensaver path needs Android 12+, it's
   a black box of unverified Portal compatibility, and it isn't ours to shape.
+
+## Correction 2026-08-16 — the Portal is Android 9, not 10
+
+This ADR and the two that follow it describe the device as Android 10. Read from
+the devices themselves (`ro.build.version.release`): the London **Portal Plus**
+is **Android 9 / API 28**, and the Sofia **Portal Mini** is **Android 10 / API
+29**. The decisions are unaffected — `minSdk 28` covers both, and the reasoning
+about missing modern screensaver APIs holds for either — but the version number
+is wrong wherever it appears in ADRs 0001–0003, and it matters for anything
+version-gated. Background activity starts, for instance, are restricted from
+Android 10, so a guard that is mandatory on the Mini is belt-and-braces on the
+Plus.
