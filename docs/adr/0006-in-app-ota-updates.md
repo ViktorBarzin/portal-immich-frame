@@ -23,7 +23,7 @@ past why the screen is blank.
 An ordinary Android app cannot install a package silently. That requires either a
 system-signed app or device-owner provisioning, and device owner needs a factory
 reset with no accounts on the device — which the official Portal path in
-`docs/runbooks/reprovision-after-factory-reset.md` rules out, since the device
+the infra repo's `docs/runbooks/provision-portal.md` rules out, since the device
 stays signed in to its Meta account.
 
 So the ceiling is: notice, download and verify automatically; the install itself
