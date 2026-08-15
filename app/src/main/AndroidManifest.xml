@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      Read the default gateway for the failure panel (FrameStatusView). A normal
+      permission — granted at install, no runtime prompt on a device nobody is
+      standing at. The friendlier label, the Wi-Fi SSID, is deliberately NOT read:
+      since Android 8.1 that needs location permission, which is too much to hold
+      on a kiosk for one line of diagnostic text.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-feature android:name="android.software.dream" android:required="false" />
 
     <application
