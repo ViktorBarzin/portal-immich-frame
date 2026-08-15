@@ -11,8 +11,8 @@ android {
         applicationId = "me.viktorbarzin.portalframe"
         minSdk = 28      // Portal runs Android 9/10; 28 maximises install compatibility
         targetSdk = 29   // Meta's recommended Portal target (Android 10)
-        versionCode = 8
-        versionName = "0.1.7"
+        versionCode = 9
+        versionName = "0.1.8"
     }
 
     buildFeatures {
@@ -25,13 +25,21 @@ android {
     // -PframeUrl=<url>; prefer the runtime knob for new devices.
     val frameUrl = (project.findProperty("frameUrl") as String?)
         ?: "https://highlights-immich.viktorbarzin.me"
+
+    // Where the app looks for a newer build of itself on startup (FrameUpdater).
+    // Empty disables the check entirely, which is the default until the publishing
+    // endpoint is settled — a build that points nowhere simply never self-updates.
+    val updateUrl = (project.findProperty("updateUrl") as String?) ?: ""
+
     buildTypes {
         getByName("debug") {
             buildConfigField("String", "FRAME_URL", "\"$frameUrl\"")
+            buildConfigField("String", "UPDATE_URL", "\"$updateUrl\"")
         }
         getByName("release") {
             isMinifyEnabled = false
             buildConfigField("String", "FRAME_URL", "\"$frameUrl\"")
+            buildConfigField("String", "UPDATE_URL", "\"$updateUrl\"")
         }
     }
 
@@ -49,4 +57,9 @@ dependencies {
     // build fast and the APK tiny, and guarantees Android-10 compatibility.
     // Test-only deps are fine — they never enter the APK.
     testImplementation("junit:junit:4.13.2")
+    // The platform's org.json is a throwing stub in JVM unit tests, so the update
+    // manifest parser would be untestable without a real one. This is the upstream
+    // implementation Android's is derived from, and it is test-only: the APK keeps
+    // using the platform class.
+    testImplementation("org.json:json:20240303")
 }

@@ -76,8 +76,16 @@ ssh viktorbarzin@192.168.8.168 '
   # idle -> screen off (not a dream), 3-min timeout:
   "$ADB" shell settings put secure screensaver_enabled 0
   "$ADB" shell settings put system screen_off_timeout 180000
+  # Let the app offer its own updates (ADR-0006). Without this the startup check
+  # still runs and downloads, but the install prompt never appears. Needs no
+  # Portal UI, and it is the only per-device step OTA adds.
+  "$ADB" shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
 '
 ```
+
+> After this, a new build reaches the device on its own: the app notices, downloads
+> and verifies it on the next start, then Android asks whoever is there to confirm.
+> This sideload path stays the way a *wiped* or *new* device is brought up.
 
 `adb screencap` returns black for the Portal's WebView surface — verify by
 looking at the physical screen, not a screenshot.

@@ -12,6 +12,10 @@
 #        FRAME_URL=https://highlights-immich-emo.viktorbarzin.me scripts/build-apk.sh
 #                                    (sets the DEFAULT this APK ships with; a device
 #                                     can also be re-pointed at runtime — see README)
+#        UPDATE_URL=https://.../latest.json scripts/build-apk.sh
+#                                    (where this build looks for a newer version of
+#                                     itself on startup — ADR-0006. Unset = no
+#                                     self-update, which is the default.)
 # Output: app/build/outputs/apk/debug/app-debug.apk
 #
 set -euo pipefail
@@ -40,6 +44,7 @@ docker run --rm \
   -e ANDROID_SDK_ROOT=/sdk \
   -e ANDROID_HOME=/sdk \
   -e FRAME_URL="${FRAME_URL:-}" \
+  -e UPDATE_URL="${UPDATE_URL:-}" \
   "$IMAGE" bash -euo pipefail -c '
     export DEBIAN_FRONTEND=noninteractive
     command -v unzip >/dev/null || { apt-get update -qq && apt-get install -y -qq unzip curl >/dev/null; }
@@ -67,10 +72,10 @@ docker run --rm \
     # Generate the committed wrapper once, then build through it.
     [ -x ./gradlew ] || gradle wrapper --gradle-version '"$GRADLE_VERSION"' --distribution-type bin >/dev/null
     echo ">> Running unit tests..."
-    ./gradlew --no-daemon testDebugUnitTest ${FRAME_URL:+-PframeUrl="$FRAME_URL"}
+    ./gradlew --no-daemon testDebugUnitTest ${FRAME_URL:+-PframeUrl="$FRAME_URL"} ${UPDATE_URL:+-PupdateUrl="$UPDATE_URL"}
 
-    echo ">> Building debug APK (FRAME_URL=${FRAME_URL:-<default London>})..."
-    ./gradlew --no-daemon assembleDebug ${FRAME_URL:+-PframeUrl="$FRAME_URL"}
+    echo ">> Building debug APK (FRAME_URL=${FRAME_URL:-<default London>}, UPDATE_URL=${UPDATE_URL:-<none>})..."
+    ./gradlew --no-daemon assembleDebug ${FRAME_URL:+-PframeUrl="$FRAME_URL"} ${UPDATE_URL:+-PupdateUrl="$UPDATE_URL"}
   '
 
 echo

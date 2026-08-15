@@ -66,6 +66,50 @@ adb shell settings put secure screensaver_enabled 0      # idle -> screen off (n
 adb shell settings put system screen_off_timeout 180000  # 3 min
 ```
 
+## Updates
+
+The app checks for a newer build of itself **on startup** and, if one is
+published, downloads it, verifies its SHA-256 and offers it to the package
+installer (ADR-0006). Android then shows its own *"Do you want to update this
+app?"* dialog and someone taps **Update** — an unprivileged app cannot install
+silently, and the alternative (device-owner provisioning) needs a factory reset
+with no accounts on the device, which the Portal path rules out.
+
+Point a build at a manifest with `-PupdateUrl`; with no URL the check is disabled
+and the build never self-updates:
+
+```bash
+updateUrl=https://…/latest.json scripts/build-apk.sh   # see the script for the property
+```
+
+The manifest is small and its unknown fields are ignored, so it can grow later:
+
+```json
+{"versionCode": 9, "versionName": "0.1.8", "url": "https://…/frame-v0.1.8.apk", "sha256": "a0191e38…"}
+```
+
+Each device needs the install app-op allowed once — an adb one-liner, no Portal
+UI involved:
+
+```bash
+adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
+```
+
+The published APK must be signed with the **same key** as the installed one, or
+the update is rejected. The key lives in Vault (`secret/portal-immich-frame` →
+`debug_keystore_b64`).
+
+> **Where builds get published is not settled yet.** The app needs an
+> unauthenticated HTTPS URL — a token embedded in a distributable APK is not an
+> option — which is the whole of the decision. The candidates: a **public GitHub
+> release** (works even when the homelab is down, but this repo's runbooks carry
+> internal topology, so it would need those moved to the private monorepo first);
+> a **LAN-only endpoint in the cluster** (nothing leaves the homelab, and the
+> frames are on home LANs anyway, but it needs somewhere to serve from); or a
+> **Nextcloud public link** (self-hosted, no new service, unguessable URL, but
+> the link is managed by hand per release). `-PupdateUrl` exists so this can be
+> decided without touching app code.
+
 ## Configuration
 
 ### Which frame this device shows

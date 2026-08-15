@@ -10,6 +10,14 @@
       on a kiosk for one line of diagnostic text.
     -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      Offer a downloaded build to the package installer (FrameUpdater). This does
+      NOT allow silent installs — Android still shows its own confirmation dialog,
+      which a person taps. It additionally needs the matching app-op allowed once
+      per device, which is an adb one-liner and needs no Portal UI:
+        adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.software.dream" android:required="false" />
 
     <application
@@ -36,6 +44,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Receives the package installer's status for a self-update and raises the
+          confirmation prompt. Not exported: only our own PendingIntent targets it.
+        -->
+        <receiver
+            android:name=".FrameInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="me.viktorbarzin.portalframe.INSTALL_STATUS" />
+            </intent-filter>
+        </receiver>
 
         <!-- Screensaver / "Dream" - the primary idle display mechanism. -->
         <service

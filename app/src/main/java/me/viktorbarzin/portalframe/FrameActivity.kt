@@ -63,6 +63,16 @@ class FrameActivity : Activity() {
         if (!configured) {
             Toast.makeText(this, "Double-tap or long-press to exit", Toast.LENGTH_LONG).show()
         }
+
+        // Startup is the right moment to look for a new build: the frame is normally
+        // left open for weeks, so this runs when someone has just walked up to the
+        // device — which is also who has to tap Android's install prompt. It runs off
+        // the main thread and fails silently, so photos come up regardless.
+        FrameUpdater(
+            context = this,
+            manifestUrl = BuildConfig.UPDATE_URL,
+            installedVersionCode = BuildConfig.VERSION_CODE,
+        ).checkInBackground()
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
