@@ -53,8 +53,17 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n me.viktorbarzin.portalframe/.FrameActivity
 ```
 
-> `adb screencap` returns **black** for Portal's hardware-accelerated WebView
-> surface — it cannot be used to verify rendering; check the physical screen.
+> `adb screencap` **does** capture the frame on the London Portal+ — verified
+> 2026-08-15, a full-colour photo with the clock overlay. This previously
+> returned black for the hardware-accelerated WebView surface, so if you get a
+> black image that is the known older behaviour rather than a broken frame;
+> check the physical screen in that case.
+>
+> Since v0.1.8 a black capture is more informative than it was: the failure panel
+> is a native view, so it *does* screenshot. A capture showing photos means the
+> frame is working, a capture showing the panel says what is wrong, and a black
+> one means neither — the screen is off, or you have hit the old WebView-surface
+> behaviour.
 
 ## Configure the Portal to sleep on idle
 
