@@ -57,6 +57,20 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          Brings the frame back after it updates itself: Android stops the app to
+          replace it and never restarts it, which on a wall display means the
+          update turns the frame off. Needs the SYSTEM_ALERT_WINDOW app-op on
+          Android 10 (background activity start) — granted during provisioning.
+        -->
+        <receiver
+            android:name=".FrameRelaunchReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Screensaver / "Dream" - the primary idle display mechanism. -->
         <service
             android:name=".FrameDreamService"
