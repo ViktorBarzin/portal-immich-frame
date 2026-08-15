@@ -37,8 +37,8 @@ Portal UI:
 
 - `adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow`
 - the published build must be signed with the same key as the installed one,
-  which is why the keystore lives in Vault (`secret/portal-immich-frame`,
-  `debug_keystore_b64`) rather than only in a docker volume on one machine.
+  which is why the keystore is held in Vault rather than only in a docker volume
+  on one machine (path in the private re-provision runbook).
 
 ## Decision
 

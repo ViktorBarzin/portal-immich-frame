@@ -24,7 +24,7 @@ import java.net.URL
  * settable over adb with no Portal UI (see the reprovision runbook):
  *   adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
  * and the installed build must be signed with the same key as the published one,
- * which is why the keystore lives in Vault rather than only in a docker volume.
+ * which is why the keystore is held in Vault rather than only in a docker volume.
  *
  * Failure is always silent and total: any error leaves the frame showing photos.
  * An update that doesn't happen is a nuisance; a frame that stops showing photos

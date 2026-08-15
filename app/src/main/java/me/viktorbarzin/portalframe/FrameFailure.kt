@@ -62,8 +62,8 @@ data class FrameFailure(
 
         /**
          * This device's own place on the network. The deciding fact when a Portal has
-         * roamed: a London frame reading `192.168.20.x` is on the neighbouring ISP
-         * router, not the home LAN, and no amount of server-side debugging will show it.
+         * roamed: a frame sitting on some other subnet entirely has joined a nearby
+         * network, not the home LAN, and no amount of server-side debugging shows it.
          */
         fun networkLine(ip: String?, gateway: String?): String {
             val parts = listOfNotNull(

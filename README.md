@@ -96,8 +96,8 @@ adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
 ```
 
 The published APK must be signed with the **same key** as the installed one, or
-the update is rejected. The key lives in Vault (`secret/portal-immich-frame` →
-`debug_keystore_b64`).
+the update is rejected. That key is held in Vault; the path is in the private
+re-provision runbook (see `docs/runbooks/`).
 
 > **Where builds get published is not settled yet.** The app needs an
 > unauthenticated HTTPS URL — a token embedded in a distributable APK is not an
@@ -146,6 +146,5 @@ an APK that points somewhere specific the moment it is installed.
 ### What the frame shows
 
 The frame's **content and look** (albums, interval, overlays, weather) are
-configured **server-side** in ImmichFrame, not in this app — in the infra repo at
-`stacks/immich/frame.tf` (Vault holds the API keys: `frame_api_key`,
-`frame_weather_api_key`). This app only points a WebView at the URL.
+configured **server-side** in ImmichFrame, not in this app — in the private infra
+repo, which also holds the API keys. This app only points a WebView at the URL.
