@@ -102,3 +102,37 @@ Two behaviours cost a round of device testing and are easy to reintroduce:
   log says "offering", and nothing ever appears on screen.
 - The status receiver must be a broadcast receiver, and the confirmation Intent
   needs `FLAG_ACTIVITY_NEW_TASK` — it arrives with no task of its own.
+
+## Amendment 2026-08-16 — publishing settled, and two things the first real update taught us
+
+**Where builds are published is no longer open.** They are GitHub releases from
+this repo, built and signed by `.github/workflows/build.yml` on a `vX.Y.Z` tag,
+carrying the APK and `latest.json` from the same job so the two cannot disagree.
+Shipped builds point at `releases/latest/download/latest.json`, a stable redirect
+to the newest release. The repo is public because the frames need an
+unauthenticated URL and a token in a distributable APK is not acceptable; the
+runbooks that named LAN addresses moved to the private infra repo first.
+
+**Startup is no longer the only trigger.** The check now repeats every 6 hours
+while the app runs. Startup-only was close to never in practice: a frame is
+opened once and left up for weeks, so the only real trigger was a device reboot.
+Repeating introduced a question the original design did not have — what if
+someone declines — so a declined version backs off for 24 hours while a newer
+build is still offered immediately.
+
+**Two device prerequisites were missing from the original list**, both found by
+updating a real Portal rather than an emulator:
+
+- `settings put global package_verifier_enable 0`. The Portal ships no Play/GMS,
+  so nothing on the device can answer a package-verification request; the check
+  never completes and the installer aborts with
+  `INSTALL_FAILED_VERIFICATION_FAILURE` *after* the download, the checksum and
+  the user tapping Install. Sideloads hid this entirely, because
+  `verifier_verify_adb_installs` is already `0`.
+- `appops set <pkg> SYSTEM_ALERT_WINDOW allow`, so the frame can relaunch itself
+  afterwards — Android stops an app to replace it and never restarts it, and
+  starting an activity from `MY_PACKAGE_REPLACED` is a background activity start.
+
+**Known and accepted (Viktor, 2026-08-16):** the frame does not start itself
+after a device reboot. Someone opens it once; updates are automatic from then on.
+A `BOOT_COMPLETED` receiver was considered and deliberately not built.

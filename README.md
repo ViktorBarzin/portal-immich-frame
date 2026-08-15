@@ -35,8 +35,9 @@ scripts/build-apk.sh          # runs the unit tests, then builds
 ```
 
 minSdk 28, targetSdk 29 (Meta's recommended Portal target), no third-party deps in
-the APK (`junit` is test-only). There is no CI on this repo, so the build script is
-the gate: it runs `testDebugUnitTest` before `assembleDebug` and fails on a red test.
+the APK (`junit` and `org.json` are test-only). This script is the local gate — it
+runs `testDebugUnitTest` before `assembleDebug` and fails on a red test — and CI
+runs the same tests again on a tag before publishing a release (see Updates).
 
 > The debug keystore lives in the `portalframe-android-home` docker volume so the
 > signature is **stable** across rebuilds — that's what lets `adb install -r`
@@ -77,12 +78,20 @@ adb shell settings put system screen_off_timeout 180000  # 3 min
 
 ## Updates
 
-The app checks for a newer build of itself **on startup** and, if one is
-published, downloads it, verifies its SHA-256 and offers it to the package
-installer (ADR-0006). Android then shows its own *"Do you want to update this
-app?"* dialog and someone taps **Update** — an unprivileged app cannot install
-silently, and the alternative (device-owner provisioning) needs a factory reset
-with no accounts on the device, which the Portal path rules out.
+The app checks for a newer build of itself **at launch and then every 6 hours**,
+and if one is published it downloads it, verifies its SHA-256 and offers it to
+the package installer (ADR-0006). Android then shows its own *"Do you want to
+update this app?"* dialog and someone taps **Update** — an unprivileged app
+cannot install silently, and the alternative (device-owner provisioning) needs a
+factory reset with no accounts on the device, which the Portal path rules out.
+
+After installing, the frame **brings itself back**: Android stops an app to
+replace it and never restarts it, which on a wall display would otherwise leave
+the Portal on its launcher. Declining an update backs that version off for 24h,
+so a repeating check cannot turn the frame into a dialog that keeps returning.
+
+Not covered: the frame does not start itself after a **device reboot** — someone
+opens it once, and updating is automatic from then on (accepted 2026-08-16).
 
 Point a build at a manifest with `-PupdateUrl`; with no URL the check is disabled
 and the build never self-updates:
@@ -97,27 +106,34 @@ The manifest is small and its unknown fields are ignored, so it can grow later:
 {"versionCode": 9, "versionName": "0.1.8", "url": "https://…/frame-v0.1.8.apk", "sha256": "a0191e38…"}
 ```
 
-Each device needs the install app-op allowed once — an adb one-liner, no Portal
-UI involved:
+Each device needs three one-time settings — all adb one-liners, no Portal UI
+involved (`infra/scripts/provision-portal.sh` applies them):
 
 ```bash
+# or the prompt never appears
 adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
+# or the frame cannot bring itself back afterwards (background activity start)
+adb shell appops set me.viktorbarzin.portalframe SYSTEM_ALERT_WINDOW allow
+# or the install aborts with INSTALL_FAILED_VERIFICATION_FAILURE: the Portal
+# ships no Play/GMS, so nothing on it can answer a verification request
+adb shell settings put global package_verifier_enable 0
 ```
 
 The published APK must be signed with the **same key** as the installed one, or
 the update is rejected. That key is held in Vault; the path is in the private
 re-provision runbook (see `docs/runbooks/`).
 
-> **Where builds get published is not settled yet.** The app needs an
-> unauthenticated HTTPS URL — a token embedded in a distributable APK is not an
-> option — which is the whole of the decision. The candidates: a **public GitHub
-> release** (works even when the homelab is down, but this repo's runbooks carry
-> internal topology, so it would need those moved to the private monorepo first);
-> a **LAN-only endpoint in the cluster** (nothing leaves the homelab, and the
-> frames are on home LANs anyway, but it needs somewhere to serve from); or a
-> **Nextcloud public link** (self-hosted, no new service, unguessable URL, but
-> the link is managed by hand per release). `-PupdateUrl` exists so this can be
-> decided without touching app code.
+Builds are published as **GitHub releases** from this repo, by
+`.github/workflows/build.yml` on a `vX.Y.Z` tag. Releases carry the APK and a
+`latest.json`, produced by the same job so they cannot disagree, and CI refuses
+to publish if the APK is not signed with the frames' key. Shipped builds point
+at `releases/latest/download/latest.json` — a stable redirect to the newest
+release, so a build published today keeps finding its successors.
+
+That is why this repo is public: the frames need an unauthenticated HTTPS URL,
+and a token embedded in a distributable APK is not an option. The operational
+runbooks, which name LAN addresses and hosts, live in the private infra repo
+instead (see `docs/runbooks/`).
 
 ## Configuration
 
