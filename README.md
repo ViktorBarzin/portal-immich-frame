@@ -53,7 +53,12 @@ runs the same tests again on a tag before publishing a release (see Updates).
 ## Deploy (adb sideload)
 
 The Portal is reached over USB from a machine running `adb` (here, a Mac on the
-Portal's LAN; the build host is remote over a tunnel):
+Portal's LAN; the build host is remote over a tunnel). A Portal can also be
+reached **over the network** once `adb tcpip 5555` has been issued over USB —
+convenient, but it lasts only until the device reboots (the persistent property
+needs root, which these devices do not have). USB adb itself does come back on
+its own after a reboot, ~60s, so nothing is lost permanently. Access paths and
+reboot behaviour: `infra/docs/runbooks/provision-portal.md`.
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
