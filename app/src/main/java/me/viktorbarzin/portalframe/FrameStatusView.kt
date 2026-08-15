@@ -67,7 +67,7 @@ class FrameStatusView(context: Context) : LinearLayout(context) {
      * The IPv4 default gateway on the active network, or null when there is none.
      *
      * IPv4 specifically: the question this line answers is "which LAN is this?", and
-     * the answer is `192.168.8.1` vs `192.168.20.1`. Taking the first default route
+     * the answer is one home subnet versus another. Taking the first default route
      * instead picks the IPv6 one on a dual-stack network and prints `fe80::2`, which
      * is true and useless (seen on the emulator, 2026-08-15).
      */
