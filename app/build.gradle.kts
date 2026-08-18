@@ -11,8 +11,8 @@ android {
         applicationId = "me.viktorbarzin.portalframe"
         minSdk = 28      // Portal runs Android 9/10; 28 maximises install compatibility
         targetSdk = 29   // Meta's recommended Portal target (Android 10)
-        versionCode = 11
-        versionName = "0.1.10"
+        versionCode = 12
+        versionName = "0.1.11"
     }
 
     buildFeatures {

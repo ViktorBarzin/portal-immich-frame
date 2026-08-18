@@ -96,4 +96,41 @@ class FrameFailureTest {
         assertEquals(FrameFailure.http(403, url), FrameFailure.httpOrNull(403, url))
         assertEquals(FrameFailure.http(500, url), FrameFailure.httpOrNull(500, url))
     }
+
+    @Test
+    fun `a stalled frame says the photos stopped, not that the load failed`() {
+        val f = FrameFailure.stalled(url, silentForMs = 6L * 60 * 1000)
+        // The page loaded fine — saying "can't reach the frame" here would send
+        // whoever reads it looking for a server outage that isn't happening.
+        assertEquals("The frame stopped showing photos", f.headline)
+        assertTrue(f.detail, f.detail.contains("6 minutes"))
+    }
+
+    @Test
+    fun `the stalled detail counts whole minutes and stays grammatical`() {
+        assertTrue(FrameFailure.stalled(url, 60_000).detail.contains("1 minute."))
+        assertTrue(FrameFailure.stalled(url, 90_000).detail.contains("1 minute."))
+        assertTrue(FrameFailure.stalled(url, 120_000).detail.contains("2 minutes"))
+    }
+
+    @Test
+    fun `a stall shorter than a minute still reads as a duration, never zero`() {
+        val detail = FrameFailure.stalled(url, 20_000).detail
+        assertTrue(detail, !detail.contains("0 minute"))
+        assertTrue(detail, detail.contains("1 minute."))
+    }
+
+    @Test
+    fun `a stalled frame carries the target url like every other failure`() {
+        assertTrue(FrameFailure.stalled(url, 180_000).target.contains(url))
+    }
+
+    @Test
+    fun `the retry line says minutes once the cadence is measured in them`() {
+        // "Retrying every 180s" is arithmetic homework for whoever walks past.
+        assertTrue(FrameFailure.retryLine(attempt = 2, seconds = 180).contains("3min"))
+        assertTrue(FrameFailure.retryLine(attempt = 2, seconds = 60).contains("1min"))
+        assertTrue(FrameFailure.retryLine(attempt = 1, seconds = 5).contains("5s"))
+        assertTrue(FrameFailure.retryLine(attempt = 1, seconds = 90).contains("90s"))
+    }
 }

@@ -3,6 +3,7 @@ package me.viktorbarzin.portalframe
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.RenderProcessGoneDetail
@@ -27,6 +28,10 @@ import android.widget.FrameLayout
  * black screen — indistinguishable from "asleep", from "the server is down", and
  * from "this Portal joined the neighbour's Wi-Fi", which is what it actually was
  * twice. [FrameStatusView] puts the deciding facts on the glass instead.
+ *
+ * Two of those facts only became reachable once the frame stopped trusting a single
+ * successful navigation. The page can load and *then* stop being a photo frame —
+ * see [FrameHealth] — so a timer watches for silence alongside the load callbacks.
  */
 @SuppressLint("ViewConstructor")
 class FrameView(context: Context) : FrameLayout(context) {
@@ -39,6 +44,14 @@ class FrameView(context: Context) : FrameLayout(context) {
     // explanation off screen with it.
     private val status = FrameStatusView(context)
     private val state = FrameLoadState()
+
+    // Watches a page that loaded but stopped asking for photos.
+    private val health = FrameHealth(SILENCE_MS)
+
+    // True while the stall panel is up. It outlives a reload on purpose: the panel
+    // must stay until photos actually come back, not vanish the moment a page
+    // finishes loading — a page loading fine is exactly what the stall looks like.
+    private var stalled = false
 
     // Resolved per load, not cached, so re-pointing the device takes effect on the
     // next reload without restarting the app.
@@ -63,7 +76,13 @@ class FrameView(context: Context) : FrameLayout(context) {
             mediaPlaybackRequiresUserGesture = false
             loadWithOverviewMode = true
             useWideViewPort = true
-            cacheMode = WebSettings.LOAD_DEFAULT
+            // The frame page carries no Cache-Control, so with LOAD_DEFAULT Chromium
+            // applies heuristic freshness — 10% of the file's age, days for a shell
+            // built weeks ago. A Portal launched on a Wi-Fi with no route home then
+            // renders that cached shell, the navigation SUCCEEDS, and every callback
+            // below stays quiet while the screen is black. Fetching ~74 KB on each
+            // load is the cheaper half of that trade.
+            cacheMode = WebSettings.LOAD_NO_CACHE
         }
         wv.webViewClient = object : WebViewClient() {
             override fun onReceivedError(
@@ -93,9 +112,30 @@ class FrameView(context: Context) : FrameLayout(context) {
                 FrameFailure.httpOrNull(code, urls.current())?.let(::fail)
             }
 
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                // Nothing is intercepted — this is the only hook that reliably sees
+                // fetch/XHR, which is all the frame page makes once it is running.
+                // Runs off the main thread, hence the post.
+                if (isPhotoRequest(request?.url?.path)) main.post(::photoSeen)
+                return null
+            }
+
+            override fun onLoadResource(view: WebView, url: String?) {
+                // Belt and braces: a request served through the page's service worker
+                // may not reach shouldInterceptRequest. Double-counting is harmless —
+                // both paths only ever say "the frame is alive".
+                if (isPhotoRequest(runCatching { Uri.parse(url).path }.getOrNull())) photoSeen()
+            }
+
             override fun onPageFinished(view: WebView, url: String?) {
-                // A load that carried no error is a working frame — stand down.
-                if (state.finishedSuccessfully()) showStatus(false)
+                // A load that carried no error is a working frame — stand down. Not
+                // while stalled, though: a stalled frame loads perfectly well, and
+                // hiding the panel here would flash it every reload instead of
+                // leaving it up until photos actually return.
+                if (state.finishedSuccessfully() && !stalled) showStatus(false)
             }
 
             override fun onRenderProcessGone(
@@ -110,6 +150,9 @@ class FrameView(context: Context) : FrameLayout(context) {
             }
         }
         webView = wv
+        // A fresh WebView is a fresh page: start the stall clock with it, so the
+        // Dream path and a renderer rebuild are watched exactly like app mode.
+        startWatching()
         addView(wv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         // The panel must out-rank the WebView in z-order. On a rebuild the fresh
         // WebView is added on top of it, hence the explicit bringToFront().
@@ -131,6 +174,61 @@ class FrameView(context: Context) : FrameLayout(context) {
     private fun load(view: WebView) {
         state.startingLoad()
         view.loadUrl(urls.current())
+    }
+
+    /**
+     * The page asked the frame server for content, which is the whole definition of
+     * a working frame here. Clears a stall: the panel is only ever taken down by
+     * photos arriving, never by a page merely finishing a load.
+     */
+    private fun photoSeen() {
+        health.photoRequested(System.currentTimeMillis())
+        if (!stalled) return
+        stalled = false
+        if (state.current == null) showStatus(false)
+    }
+
+    /**
+     * Ask [health] whether the frame has gone quiet, and act on the answer.
+     *
+     * Skipped entirely while a load failure is on screen: that panel names the exact
+     * error and is already retrying every few seconds, so replacing it with "it
+     * stopped showing photos" would trade a precise message for a vague one.
+     */
+    private fun checkHealth() {
+        if (state.current != null) return
+        val verdict = health.check(System.currentTimeMillis())
+        if (verdict !is FrameHealth.Verdict.Stalled) return
+        if (verdict.explain) {
+            stalled = true
+            status.show(
+                FrameFailure.stalled(urls.current(), verdict.silentForMs),
+                verdict.attempt,
+                (SILENCE_MS / 1000).toInt(),
+            )
+            showStatus(true)
+        }
+        // Reloading IS the probe: it either brings photos back or fails for real,
+        // and a real failure explains itself far better than this can.
+        webView?.let(::load)
+    }
+
+    private val healthTick = object : Runnable {
+        override fun run() {
+            checkHealth()
+            main.postDelayed(this, CHECK_MS)
+        }
+    }
+
+    private fun startWatching() {
+        health.watch(System.currentTimeMillis())
+        main.removeCallbacks(healthTick)
+        main.postDelayed(healthTick, CHECK_MS)
+    }
+
+    private fun stopWatching() {
+        health.unwatch()
+        main.removeCallbacks(healthTick)
     }
 
     /** Put [failure] on screen and keep reloading, so the frame returns on its own. */
@@ -155,16 +253,53 @@ class FrameView(context: Context) : FrameLayout(context) {
 
     /** Reload the frame (e.g. when the app is re-opened). Rebuilds if needed. */
     fun reload() {
+        // A deliberate reload is a fresh start, so the stall streak starts over. The
+        // watchdog's own reloads deliberately do NOT come through here — theirs must
+        // accumulate, or a second stall could never be reached and never explained.
+        startWatching()
         val wv = webView
         if (wv == null) build() else load(wv)
     }
 
-    fun onResumeView() = webView?.onResume()
-    fun onPauseView() = webView?.onPause()
-    fun destroyView() = destroyWebView()
+    fun onResumeView() {
+        webView?.onResume()
+        startWatching()
+    }
+
+    fun onPauseView() {
+        webView?.onPause()
+        stopWatching()
+    }
+
+    fun destroyView() {
+        stopWatching()
+        destroyWebView()
+    }
+
+    /** Content from the frame server, as opposed to the page's own assets. */
+    private fun isPhotoRequest(path: String?): Boolean = path?.startsWith(API_PREFIX) == true
 
     private companion object {
         const val RETRY_MS = 5_000L
         const val REBUILD_MS = 1_500L
+
+        /**
+         * How long a loaded page may ask for nothing before it is treated as stalled.
+         * Six missed photo cycles on the London frame (`Interval: 30`), four on
+         * Sofia's (45) — comfortably past a slow response, well short of a wall
+         * staying black unexplained.
+         */
+        const val SILENCE_MS = 3L * 60 * 1000
+
+        /** Tick well inside [SILENCE_MS] so a stall is noticed near when it starts. */
+        const val CHECK_MS = 30_000L
+
+        /**
+         * Photo traffic, matched on the prefix rather than the exact endpoint: a
+         * cycle is `/api/Asset`, `/api/Asset/…/AssetInfo` and `/api/Asset/…/AssetFaces`,
+         * and matching the prefix means one endpoint being renamed upstream cannot
+         * make a healthy frame look dead.
+         */
+        const val API_PREFIX = "/api/"
     }
 }

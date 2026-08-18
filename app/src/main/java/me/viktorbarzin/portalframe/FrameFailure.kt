@@ -61,6 +61,27 @@ data class FrameFailure(
         )
 
         /**
+         * The page loaded and then stopped showing photos ([FrameHealth]).
+         *
+         * Worded apart from the other two on purpose. "Can't reach the frame" would
+         * send whoever reads it hunting for a server outage, and the server is
+         * usually fine — what changed is this device's network, after the page had
+         * already been loaded from cache. [silentForMs] is the deciding fact: it
+         * dates the failure, which a screen full of photos-that-aren't cannot.
+         */
+        fun stalled(url: String, silentForMs: Long): FrameFailure = FrameFailure(
+            headline = "The frame stopped showing photos",
+            detail = "No photo has loaded for ${minutes(silentForMs)}.",
+            target = "Frame: $url",
+        )
+
+        /** Whole minutes, never "0 minutes" — a stall is always at least a minute old. */
+        private fun minutes(ms: Long): String {
+            val whole = (ms / 60_000).coerceAtLeast(1)
+            return if (whole == 1L) "1 minute" else "$whole minutes"
+        }
+
+        /**
          * This device's own place on the network. The deciding fact when a Portal has
          * roamed: a frame sitting on some other subnet entirely has joined a nearby
          * network, not the home LAN, and no amount of server-side debugging shows it.
@@ -75,6 +96,10 @@ data class FrameFailure(
 
         /** Proof the frame is still trying, so a stuck screen reads differently from a retrying one. */
         fun retryLine(attempt: Int, seconds: Int): String =
-            "Retrying every ${seconds}s — attempt $attempt"
+            "Retrying every ${cadence(seconds)} — attempt $attempt"
+
+        /** Minutes once they divide evenly: "every 180s" is arithmetic for the reader. */
+        private fun cadence(seconds: Int): String =
+            if (seconds >= 60 && seconds % 60 == 0) "${seconds / 60}min" else "${seconds}s"
     }
 }

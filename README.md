@@ -184,3 +184,29 @@ an APK that points somewhere specific the moment it is installed.
 The frame's **content and look** (albums, interval, overlays, weather) are
 configured **server-side** in ImmichFrame, not in this app — in the private infra
 repo, which also holds the API keys. This app only points a WebView at the URL.
+
+## When it can't show photos
+
+A blank frame used to be a black rectangle: identical whether the server was down,
+the Portal had joined a different Wi-Fi, or the screen was simply asleep. The app
+now puts the deciding facts on the glass instead — the frame URL, this device's own
+IPv4 address and default gateway, and a retry count so a stuck frame reads
+differently from a retrying one.
+
+Three things can go wrong, and each says something different:
+
+| What happened | Headline |
+|---|---|
+| Nothing answered — no route, no DNS, refused, timed out | *Can't reach the frame*, with the WebView's own `net::ERR_…` |
+| The server answered 403 — the endpoint is limited to the home LANs | *Not allowed from this network* |
+| The page loaded, then stopped asking for photos | *The frame stopped showing photos*, with how long since the last one |
+
+The first two are load failures, reported by WebView callbacks. The third needs
+watching for, and is the one that kept getting missed: the frame page carries no
+`Cache-Control`, so a Portal launched on a network with no route home can render a
+**cached** shell, which is a perfectly successful navigation with nothing behind it.
+Two things address that — the WebView no longer serves the frame from its HTTP cache
+(`LOAD_NO_CACHE`, ~74 KB per load), and `FrameHealth` treats three minutes without a
+`/api/` request as a stall. The first stall is answered with a quiet reload, since
+most heal and a panel flashing on a wall is worse than the moment; a second stall in
+a row puts the panel up and leaves it there until photos actually return.
