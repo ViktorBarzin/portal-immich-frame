@@ -130,6 +130,67 @@ class FrameHealthTest {
     }
 
     @Test
+    fun `a frame walking through its prefetched photos is not stalled`() {
+        // THE REGRESSION THIS FILE EXISTS TO PIN. ImmichFrame fetches a batch of 25
+        // assets, then prefetches the one on screen plus PRELOAD_ASSETS=5 ahead. So
+        // once fewer than five are left in the backlog, everything remaining is
+        // already in memory and the frame asks for NOTHING for the last six advances
+        // of every batch. At `Interval: 45` that is a legitimate 4m30s of quiet.
+        //
+        // Measured on Milka's frame 2026-08-23: the old fixed three-minute threshold
+        // sat below that, so a stall was declared on every batch — 22 reloads in six
+        // hours, on a frame that was showing photos perfectly the whole time.
+        val health = FrameHealth(FrameHealth.silenceFor(45))
+        health.watch(0)
+
+        val quietTail = 6 * 45_000L
+        assertEquals(FrameHealth.Verdict.Healthy, health.check(quietTail))
+    }
+
+    @Test
+    fun `the threshold clears the frame's own prefetch quiet, with room to spare`() {
+        for (interval in listOf(30, 45, 60)) {
+            val quietTail = 6L * interval * 1000
+            assertTrue(
+                "interval $interval: threshold must sit above the frame's own quiet",
+                FrameHealth.silenceFor(interval) > quietTail,
+            )
+        }
+    }
+
+    @Test
+    fun `an unknown interval falls back to the original threshold`() {
+        // No config answer — a frame that cannot be asked is still worth watching,
+        // just on the conservative old value rather than on nothing.
+        assertEquals(3L * 60 * 1000, FrameHealth.silenceFor(null))
+    }
+
+    @Test
+    fun `an interval the server could not have meant is treated as unknown`() {
+        assertEquals(FrameHealth.silenceFor(null), FrameHealth.silenceFor(0))
+        assertEquals(FrameHealth.silenceFor(null), FrameHealth.silenceFor(-45))
+    }
+
+    @Test
+    fun `a very long interval cannot leave a dark wall unexplained for an hour`() {
+        // Someone setting a ten-minute interval must not buy an eighty-minute wait
+        // before the frame says anything.
+        assertTrue(FrameHealth.silenceFor(600) <= 15L * 60 * 1000)
+    }
+
+    @Test
+    fun `retuning takes effect and starts the clock again`() {
+        val health = FrameHealth(3L * 60 * 1000)
+        health.watch(0)
+
+        health.retune(FrameHealth.silenceFor(45), 0)
+
+        // The old threshold would have called this a stall; the tuned one must not.
+        assertEquals(FrameHealth.Verdict.Healthy, health.check(6 * 45_000L))
+        assertTrue(health.check(FrameHealth.silenceFor(45)) is FrameHealth.Verdict.Stalled)
+    }
+
+    @Test
     fun `a backwards clock jump re-baselines instead of stalling on a bogus gap`() {
         val health = FrameHealth(silence)
         health.watch(1_000_000)

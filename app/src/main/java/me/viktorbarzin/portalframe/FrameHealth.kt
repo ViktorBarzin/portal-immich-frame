@@ -25,7 +25,7 @@ package me.viktorbarzin.portalframe
  * and a panel that appears on a wall for a moment is worse than the moment. A second
  * stall means the reload didn't help, and that is worth saying out loud.
  */
-class FrameHealth(private val silenceMs: Long) {
+class FrameHealth(private var silenceMs: Long) {
 
     /** What [check] concluded. */
     sealed class Verdict {
@@ -65,6 +65,19 @@ class FrameHealth(private val silenceMs: Long) {
         watching = false
     }
 
+    /**
+     * Adopt a threshold derived from the frame's real cadence, once it is known.
+     *
+     * The config answer arrives after the page has already started being watched,
+     * so the frame begins on the conservative fixed threshold and is retuned a
+     * moment later. Re-baselines rather than keeping the old clock: the interval
+     * that was being measured against no longer applies.
+     */
+    fun retune(newSilenceMs: Long, nowMs: Long) {
+        silenceMs = newSilenceMs
+        rebase(nowMs)
+    }
+
     /** The page asked for a photo — it is doing its job. */
     fun photoRequested(nowMs: Long) {
         rebase(nowMs)
@@ -97,8 +110,53 @@ class FrameHealth(private val silenceMs: Long) {
         attempts = 0
     }
 
-    private companion object {
+    companion object {
         /** Stalls before the panel goes up — one reload is given the chance to fix it. */
-        const val EXPLAIN_AFTER = 2
+        private const val EXPLAIN_AFTER = 2
+
+        /**
+         * Threshold used when the frame's cadence is unknown. The original fixed
+         * value, kept for exactly that case: a frame whose config cannot be read is
+         * still worth watching, just conservatively.
+         */
+        private const val UNKNOWN_INTERVAL_MS = 3L * 60 * 1000
+
+        /**
+         * Advances a healthy frame can make without asking for anything.
+         *
+         * ImmichFrame prefetches the asset on screen plus `PRELOAD_ASSETS = 5`
+         * ahead, so once fewer than five remain in its backlog every one of them is
+         * already in memory — and the frame goes silent for the rest of the batch
+         * while still changing pictures perfectly.
+         */
+        private const val PREFETCH_ADVANCES = 6
+
+        /** Slack over [PREFETCH_ADVANCES], so a slow batch refill is not a stall. */
+        private const val MARGIN_ADVANCES = 2
+
+        /**
+         * However quiet a frame is entitled to be, a wall that has actually gone
+         * dark should not wait longer than this to say so.
+         */
+        private const val CEILING_MS = 15L * 60 * 1000
+
+        /**
+         * How long a frame on this [intervalSeconds] cadence may ask for nothing
+         * before something is wrong.
+         *
+         * Derived rather than fixed because the old fixed three minutes sat *below*
+         * the quiet a healthy frame produces on its own: at `Interval: 45` the
+         * prefetch tail is 4m30s, so every batch ended in a stall verdict and a
+         * reload — 22 of them in six hours on Milka's frame, 2026-08-23, while it
+         * was showing photos the whole time.
+         *
+         * Pass null (or a value the server could not have meant) for the
+         * conservative fallback.
+         */
+        fun silenceFor(intervalSeconds: Int?): Long {
+            val interval = intervalSeconds?.takeIf { it > 0 } ?: return UNKNOWN_INTERVAL_MS
+            val quietPlusSlack = (PREFETCH_ADVANCES + MARGIN_ADVANCES) * interval * 1000L
+            return quietPlusSlack.coerceIn(UNKNOWN_INTERVAL_MS, CEILING_MS)
+        }
     }
 }

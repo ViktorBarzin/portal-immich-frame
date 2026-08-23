@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.ServiceWorkerClient
 import android.webkit.ServiceWorkerController
@@ -16,6 +17,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Self-healing host for the frame WebView, shared by [FrameActivity] (app mode)
@@ -47,8 +50,17 @@ class FrameView(context: Context) : FrameLayout(context) {
     private val status = FrameStatusView(context)
     private val state = FrameLoadState()
 
-    // Watches a page that loaded but stopped asking for photos.
-    private val health = FrameHealth(SILENCE_MS)
+    // Watches a page that loaded but stopped asking for photos. Starts on the
+    // cadence-unknown fallback and is retuned once /api/Config answers.
+    private val health = FrameHealth(FrameHealth.silenceFor(null))
+
+    // The live threshold, mirrored so the stall panel can quote the number actually
+    // in force rather than the constant it started on.
+    private var silenceMs = FrameHealth.silenceFor(null)
+
+    // The frame URL whose cadence has already been fetched, so re-pointing the
+    // device re-asks but an ordinary reload does not.
+    private var cadenceFetchedFor: String? = null
 
     // True while the stall panel is up. It outlives a reload on purpose: the panel
     // must stay until photos actually come back, not vanish the moment a page
@@ -215,7 +227,48 @@ class FrameView(context: Context) : FrameLayout(context) {
      */
     private fun load(view: WebView) {
         state.startingLoad()
-        view.loadUrl(urls.current())
+        val url = urls.current()
+        fetchCadence(url)
+        view.loadUrl(url)
+    }
+
+    /**
+     * Ask the frame server how often it changes photos, and tune [health] to it.
+     *
+     * Off the main thread and entirely best-effort: any failure leaves the
+     * conservative fallback in place, which is what the frame ran on before this
+     * existed. Fetched once per URL — the cadence is a server setting, so re-asking
+     * on every reload would be a request per stall for an answer that has not
+     * changed. Re-pointing the device changes the URL and so re-asks.
+     */
+    private fun fetchCadence(url: String) {
+        if (cadenceFetchedFor == url) return
+        cadenceFetchedFor = url
+
+        Thread({
+            val interval = runCatching {
+                val conn = (URL(FrameConfig.endpointFor(url)).openConnection() as HttpURLConnection)
+                    .apply {
+                        connectTimeout = CADENCE_TIMEOUT_MS
+                        readTimeout = CADENCE_TIMEOUT_MS
+                    }
+                try {
+                    conn.inputStream.use { FrameConfig.parseIntervalSeconds(it.readBytes().decodeToString()) }
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrNull()
+
+            val tuned = FrameHealth.silenceFor(interval)
+            main.post {
+                // A failed fetch resolves to the same fallback the frame already has,
+                // so there is nothing to say and nothing to change.
+                if (tuned == silenceMs) return@post
+                silenceMs = tuned
+                health.retune(tuned, System.currentTimeMillis())
+                Log.i(TAG, "frame changes photos every ${interval}s; stall threshold ${tuned / 1000}s")
+            }
+        }, "frame-cadence").apply { isDaemon = true }.start()
     }
 
     /**
@@ -246,7 +299,7 @@ class FrameView(context: Context) : FrameLayout(context) {
             status.show(
                 FrameFailure.stalled(urls.current(), verdict.silentForMs),
                 verdict.attempt,
-                (SILENCE_MS / 1000).toInt(),
+                (silenceMs / 1000).toInt(),
             )
             showStatus(true)
         }
@@ -318,30 +371,36 @@ class FrameView(context: Context) : FrameLayout(context) {
         destroyWebView()
     }
 
-    /** Content from the frame server, as opposed to the page's own assets. */
-    private fun isPhotoRequest(path: String?): Boolean = path?.startsWith(API_PREFIX) == true
+    /** Photo traffic from the frame server, as opposed to the page's own assets. */
+    private fun isPhotoRequest(path: String?): Boolean = path?.startsWith(ASSET_PREFIX) == true
 
     private companion object {
         const val RETRY_MS = 5_000L
         const val REBUILD_MS = 1_500L
 
         /**
-         * How long a loaded page may ask for nothing before it is treated as stalled.
-         * Six missed photo cycles on the London frame (`Interval: 30`), four on
-         * Sofia's (45) — comfortably past a slow response, well short of a wall
-         * staying black unexplained.
+         * Tick well inside the stall threshold so a stall is noticed near when it
+         * starts. The threshold itself is [FrameHealth.silenceFor], derived from the
+         * frame's own cadence.
          */
-        const val SILENCE_MS = 3L * 60 * 1000
-
-        /** Tick well inside [SILENCE_MS] so a stall is noticed near when it starts. */
         const val CHECK_MS = 30_000L
+
+        /** Best-effort side request; never worth making the frame wait on. */
+        const val CADENCE_TIMEOUT_MS = 10_000
 
         /**
          * Photo traffic, matched on the prefix rather than the exact endpoint: a
          * cycle is `/api/Asset`, `/api/Asset/…/AssetInfo` and `/api/Asset/…/AssetFaces`,
          * and matching the prefix means one endpoint being renamed upstream cannot
          * make a healthy frame look dead.
+         *
+         * Deliberately narrower than `/api/`, which also matched `/api/Weather` and
+         * `/api/Calendar`. Those run on their own ten-minute timers regardless of
+         * whether photos are still arriving, so counting them meant a frame whose
+         * photo loop had genuinely died could be reported healthy by its clock.
          */
-        const val API_PREFIX = "/api/"
+        const val ASSET_PREFIX = "/api/Asset"
+
+        const val TAG = "FrameView"
     }
 }
