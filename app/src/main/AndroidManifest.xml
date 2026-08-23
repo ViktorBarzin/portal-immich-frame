@@ -18,6 +18,12 @@
         adb shell appops set me.viktorbarzin.portalframe REQUEST_INSTALL_PACKAGES allow
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!--
+      Start the frame again after the device boots. A wall display has nobody to
+      tap the icon, so without this a power cut leaves the Portal on its launcher
+      until someone visits it (Valchedrym, 2026-08-22).
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.software.dream" android:required="false" />
 
     <application
@@ -68,6 +74,19 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          Starts the frame after a reboot. Same background-activity-start caveat as
+          FrameRelaunchReceiver above: needs the SYSTEM_ALERT_WINDOW app-op.
+        -->
+        <receiver
+            android:name=".FrameBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
