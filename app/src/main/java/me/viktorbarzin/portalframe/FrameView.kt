@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.ServiceWorkerClient
+import android.webkit.ServiceWorkerController
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -59,7 +61,46 @@ class FrameView(context: Context) : FrameLayout(context) {
 
     init {
         setBackgroundColor(Color.BLACK)
+        watchServiceWorkerRequests()
         build()
+    }
+
+    /**
+     * Count photo requests the page makes *through its service worker*.
+     *
+     * ImmichFrame registers a PWA service worker, and once that worker takes
+     * control of the page every fetch it makes is served through the worker —
+     * which means none of them reach [WebViewClient.shouldInterceptRequest] or
+     * [WebViewClient.onLoadResource]. Those two hooks watch the page, and a
+     * controlled page talks to the network from somewhere else. WebView exposes
+     * worker traffic on a separate, process-global controller, so without this the
+     * frame sees perfect silence while photos are in fact arriving.
+     *
+     * That is not theoretical: on the Valchedrym Portal on 2026-08-23 the stall
+     * panel sat on the glass with "no photo has loaded for 18 minutes" while the
+     * reverse proxy logged the device pulling 11 full-size photos in five minutes —
+     * the same rate as a known-good desktop browser on the same frame. It reads as
+     * an intermittent fault because a freshly installed build works until the
+     * worker activates and takes over, and from then on the frame is blind.
+     *
+     * The controller is per-process, so the most recently constructed FrameView
+     * owns it — which is the one on screen, since the activity and the screensaver
+     * are never up at once.
+     */
+    private fun watchServiceWorkerRequests() {
+        ServiceWorkerController.getInstance().setServiceWorkerClient(
+            object : ServiceWorkerClient() {
+                override fun shouldInterceptRequest(
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    // Nothing is intercepted; this only reports liveness. Runs off
+                    // the main thread, hence the post, exactly as the page-level hook
+                    // below does.
+                    if (isPhotoRequest(request.url?.path)) main.post(::photoSeen)
+                    return null
+                }
+            }
+        )
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -116,8 +157,9 @@ class FrameView(context: Context) : FrameLayout(context) {
                 view: WebView,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
-                // Nothing is intercepted — this is the only hook that reliably sees
-                // fetch/XHR, which is all the frame page makes once it is running.
+                // Nothing is intercepted — this sees the page's own fetch/XHR.
+                // Once a service worker controls the page its traffic moves out of
+                // reach of this hook; watchServiceWorkerRequests() covers that.
                 // Runs off the main thread, hence the post.
                 if (isPhotoRequest(request?.url?.path)) main.post(::photoSeen)
                 return null
