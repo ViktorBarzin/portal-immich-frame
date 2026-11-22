@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "portal-immich-frame"
 include(":app")
+include(":projectivy-api")
+include(":projectivy-wallpaper")

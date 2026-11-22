@@ -82,3 +82,6 @@ echo
 echo ">> Done. Artifact:"
 ls -la "$PROJ_DIR/app/build/outputs/apk/debug/app-debug.apk" 2>/dev/null \
   || { echo "BUILD FAILED — no APK produced"; exit 1; }
+# The Projectivy wallpaper plugin (projectivy-wallpaper/), built by the same run.
+ls -la "$PROJ_DIR/projectivy-wallpaper/build/outputs/apk/debug/projectivy-wallpaper-debug.apk" 2>/dev/null \
+  || { echo "BUILD FAILED — no plugin APK produced"; exit 1; }

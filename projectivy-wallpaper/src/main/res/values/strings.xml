@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plugin_name">Immich photos</string>
+    <string name="plugin_uuid" translatable="false">f0ef0d61-6e3c-47be-aa60-aaa11f3aaba7</string>
+</resources>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MissingLeanbackLauncher">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+
+    <queries>
+        <package android:name="com.spocky.projengmenu" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/plugin_name"
+        android:icon="@android:drawable/ic_menu_gallery">
+
+        <!-- Projectivy opens this from the plugin's settings button. -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
+        <service
+            android:name=".WallpaperProviderService"
+            android:exported="true"
+            android:label="@string/plugin_name"
+            tools:ignore="ExportedService">
+            <!-- How Projectivy finds wallpaper plugins; fixed by its API. -->
+            <intent-filter>
+                <action android:name="tv.projectivy.plugin.WALLPAPER_PROVIDER" />
+            </intent-filter>
+            <meta-data android:name="apiVersion" android:value="1" />
+            <meta-data android:name="uuid" android:value="@string/plugin_uuid" />
+            <meta-data android:name="name" android:value="@string/plugin_name" />
+            <meta-data android:name="settingsActivity" android:value=".SettingsActivity" />
+            <!-- One batch of 25 photos an hour; Projectivy rotates within it. -->
+            <meta-data android:name="itemsCacheDurationMillis" android:value="3600000" />
+            <!-- 1 = TIME_ELAPSED only: no per-card or idle events. -->
+            <meta-data android:name="updateMode" android:value="1" />
+        </service>
+    </application>
+</manifest>
