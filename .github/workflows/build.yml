@@ -15,17 +15,20 @@
 name: build
 
 on:
-  push:
-    tags: ['v*']
   # Lets a build be exercised without publishing anything.
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner label. Woodpecker's ci-route sets it (infra ci/route).
+        type: string
+        default: ubuntu-latest
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
